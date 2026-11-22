@@ -35,7 +35,8 @@ gh release view "smarttube-$N" -R "$APPS" > /dev/null 2>&1 ||
   gh release create "smarttube-$N" -R "$APPS" --title "SmartTube fork $NAME" --notes "$CHANGELOG" --latest=false \
     "${APKS[1]}" "${APKS[2]}" > /dev/null
 BASE="https://github.com/$APPS/releases/download/smarttube-$N"
-ESC=$(printf '%s' "$CHANGELOG" | sed 's/\/\\/g; s/"/\\"/g')
+BS='\'
+ESC=${CHANGELOG//"$BS"/"$BS$BS"}; ESC=${ESC//'"'/"$BS\""}
 JSON=$(cat <<JSON
 {
     "package": {
