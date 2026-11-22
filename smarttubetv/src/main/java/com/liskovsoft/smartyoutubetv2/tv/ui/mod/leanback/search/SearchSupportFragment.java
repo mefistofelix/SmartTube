@@ -230,6 +230,7 @@ public class SearchSupportFragment extends Fragment {
     private boolean mIsKeyboardAutoShowEnabled;
     private boolean mIsKeyboardFixEnabled;
     private boolean mIsTypingCorrectionDisabled;
+    private boolean mIsKeyboardDictation; // MOD: Fire TV voice search
 
     private SpeechRecognizer mSpeechRecognizer;
 
@@ -381,6 +382,22 @@ public class SearchSupportFragment extends Fragment {
         if (mIsTypingCorrectionDisabled) {
             mSearchTextEditor.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
         }
+        // MOD: Fire TV voice search: keyboard dictation instead of the (missing) speech recognizer
+        mIsKeyboardDictation = KeyboardDictation.isNeeded(getContext(), mSpeechRecognitionCallback != null);
+        if (mIsKeyboardDictation) {
+            KeyboardDictation.setup(mSearchTextEditor, new KeyboardDictation.Callback() {
+                @Override
+                public void onDictationDone() {
+                    Helpers.hideKeyboard(getContext(), mSearchTextEditor);
+                    submitQuery(getSearchBarText());
+                }
+
+                @Override
+                public void onDictationBack() {
+                    leaveKeyboardDictation();
+                }
+            });
+        }
         // BUGFIX: focus lost with keyboard???
         //mSearchTextEditor.setOnKeyboardDismissListener(this::focusOnSearchField);
 
@@ -414,6 +431,10 @@ public class SearchSupportFragment extends Fragment {
                 previousListener.onFocusChange(v, focused);
             }
         });
+
+        if (mIsKeyboardDictation) {
+            mSpeechOrbView.setOnOrbClickedListener(v -> startKeyboardDictation());
+        }
 
         // End MOD
 
@@ -486,7 +507,7 @@ public class SearchSupportFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        if (mSpeechRecognitionCallback == null && null == mSpeechRecognizer) {
+        if (!mIsKeyboardDictation && mSpeechRecognitionCallback == null && null == mSpeechRecognizer) {
             mSpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(
                     getContext());
             mSearchBar.setSpeechRecognizer(mSpeechRecognizer);
@@ -559,11 +580,41 @@ public class SearchSupportFragment extends Fragment {
     }
 
     private void startRecognitionInt() {
+        if (mIsKeyboardDictation) {
+            startKeyboardDictation();
+            return;
+        }
         try {
             mSearchBar.startRecognition();
         } catch (SecurityException e) {
             // Not allowed to bind to service Intent
             e.printStackTrace();
+        }
+    }
+
+    /**
+     * MOD: true when voice search is the keyboard dictation (Fire TV: no speech recognizer)
+     */
+    protected boolean isKeyboardDictation() {
+        return mIsKeyboardDictation;
+    }
+
+    /**
+     * MOD: focus the search field and show the keyboard: the user holds the remote mic to dictate
+     */
+    private void startKeyboardDictation() {
+        mSearchTextEditor.requestFocus();
+        mSearchTextEditor.post(() -> Helpers.showKeyboardAlt(getContext(), mSearchTextEditor));
+    }
+
+    /**
+     * MOD: Back in the search field: close the keyboard and move to the results (or the search button)
+     */
+    private void leaveKeyboardDictation() {
+        Helpers.hideKeyboard(getContext(), mSearchTextEditor);
+        VerticalGridView grid = mRowsSupportFragment != null ? mRowsSupportFragment.getVerticalGridView() : null;
+        if (grid == null || mResultAdapter == null || mResultAdapter.size() == 0 || !grid.requestFocus()) {
+            mSearchOrbView.requestFocus();
         }
     }
 

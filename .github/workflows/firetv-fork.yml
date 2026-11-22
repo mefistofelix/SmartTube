@@ -1,0 +1,54 @@
+# Fork build (mefistofelix/SmartTube): stable flavor signed with the fixed key in fork/debug.keystore
+# (committed on purpose, so every build updates the previous one in place), published as release fork-N.
+name: Fork APK
+
+on:
+  push:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Version name and signing
+        run: |
+          sed -i "s/versionName \"\(.*\)\"/versionName \"\1-mf${{ github.run_number }}\"/" smarttubetv/build.gradle
+          {
+            echo "storeFile=${{ github.workspace }}/fork/debug.keystore"
+            echo "storePassword=android"
+            echo "keyAlias=androiddebugkey"
+            echo "keyPassword=android"
+          } > keystore.properties
+          chmod +x gradlew
+
+      - name: Build
+        run: ./gradlew assembleStstableRelease
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          dir=smarttubetv/build/outputs/apk/ststable/release
+          ls -l $dir
+          mkdir out
+          cp $dir/*_universal.apk out/SmartTube-fork-${{ github.run_number }}-universal.apk
+          cp $dir/*_armeabi-v7a.apk out/SmartTube-fork-${{ github.run_number }}-armeabi-v7a.apk
+          cp $dir/*_arm64-v8a.apk out/SmartTube-fork-${{ github.run_number }}-arm64-v8a.apk
+          gh release create "fork-${{ github.run_number }}" out/*.apk \
+            --target "${{ github.sha }}" \
+            --title "SmartTube fork build ${{ github.run_number }}" \
+            --notes "Stable flavor (org.smarttube.stable) with Fire TV voice search through the keyboard dictation. Signed with the fork key: uninstall the official SmartTube first."

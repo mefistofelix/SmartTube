@@ -303,7 +303,7 @@ public class SearchTagsFragment extends SearchTagsFragmentBase {
             // Show suggested videos on empty search
             loadSearchResult("");
 
-            if (enableRecognition && isRecognitionAvailable()) {
+            if (enableRecognition && (isRecognitionAvailable() || isKeyboardDictation())) {
                 startRecognition();
             } else {
                 focusOnSearchField();

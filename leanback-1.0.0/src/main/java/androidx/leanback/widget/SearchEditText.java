@@ -52,8 +52,18 @@ public class SearchEditText extends StreamingTextView {
         super(context, attrs, defStyle);
     }
 
+    // MOD: keys before the IME (Fire TV keyboard doesn't close on Back by itself)
+    private OnKeyListener mPreImeKeyListener;
+
+    public void setOnPreImeKeyListener(OnKeyListener listener) {
+        mPreImeKeyListener = listener;
+    }
+
     @Override
     public boolean onKeyPreIme(int keyCode, KeyEvent event) {
+        if (mPreImeKeyListener != null && mPreImeKeyListener.onKey(this, keyCode, event)) {
+            return true;
+        }
         if (event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
             if (DEBUG) Log.v(TAG, "Keyboard being dismissed");
             if (mKeyboardDismissListener != null) {
